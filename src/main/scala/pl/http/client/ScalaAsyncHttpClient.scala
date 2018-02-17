@@ -1,49 +1,37 @@
 package pl.http.client
 
-import org.asynchttpclient._
+import org.asynchttpclient.{AsyncCompletionHandler, AsyncHttpClient, Request => ARequest, Response => AResponse}
 
 import scala.concurrent.{Future, Promise}
 
 
 object ScalaAsyncHttpClient {
 
-  implicit class BoundRequestBuilderExt(val request: BoundRequestBuilder) extends AnyVal {
-    def asyncExecute(): Future[Response] = {
-      asyncExecuteAndMap(identity)
-    }
-    def asyncExecuteAsString(): Future[String] = {
-      asyncExecuteAndMap(response => response.getResponseBody)
-    }
-    def asyncExecuteAndMap[T](mapper: Response => T): Future[T] = {
-      val p = Promise[T]()
-      request.execute(new PromiseAsyncCompletionHandler(p)(mapper))
-      p.future
-    }
-  }
-
   implicit class AsyncHttpClientExt(val client: AsyncHttpClient) extends AnyVal {
-    def asyncExecute(request: Request): Future[Response] = {
-      asyncExecuteAndMap(request)(identity)
+    def asyncExecute(request: ARequest): Future[Response] = {
+      asyncExecuteAndMap(request)(new Response(_))
     }
-    def asyncExecuteAsString(request: Request): Future[String] = {
-      asyncExecuteAndMap(request)(response => response.getResponseBody)
+
+    def asyncExecuteAsString(request: ARequest): Future[String] = {
+      asyncExecuteAndMap(request)(_.getResponseBody)
     }
-    def asyncExecuteAndMap[T](request: Request)(mapper: Response => T): Future[T] = {
+
+    def asyncExecuteAndMap[T](request: ARequest)(mapper: AResponse => T): Future[T] = {
       val p = Promise[T]()
       client.executeRequest(request, new PromiseAsyncCompletionHandler(p)(mapper))
       p.future
     }
   }
 
-  private class PromiseAsyncCompletionHandler[T](p: Promise[T])(mapper: Response => T)
-    extends AsyncCompletionHandler[Response] {
+  private class PromiseAsyncCompletionHandler[T](p: Promise[T])(mapper: AResponse => T)
+    extends AsyncCompletionHandler[AResponse] {
 
-    def onCompleted(response: Response): Response = {
+    def onCompleted(response: AResponse): AResponse = {
       p.success(mapper(response))
       response
     }
 
-    override def onThrowable(t: Throwable) = {
+    override def onThrowable(t: Throwable): Unit = {
       p.failure(t)
     }
 
