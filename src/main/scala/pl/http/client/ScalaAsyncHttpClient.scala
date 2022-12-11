@@ -18,7 +18,6 @@ object ScalaAsyncHttpClient {
 
     def asyncExecuteAndMap[T](request: ARequest)(mapper: AResponse => T): Future[T] = {
       val p = Promise[T]()
-      // TODO: .toCompletableFuture.toScala
       client.executeRequest(request, new PromiseAsyncCompletionHandler(p)(mapper))
       p.future
     }
